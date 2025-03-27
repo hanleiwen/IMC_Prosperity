@@ -3,7 +3,9 @@ from typing import List
 import string
 
 class Trader:
-    
+    LONG_POS_LIMIT = 50
+    SHORT_POS_LIMIT = -50
+
     def run(self, state: TradingState):
         print("traderData: " + state.traderData)
         print("Observations: " + str(state.observations))
