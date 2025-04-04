@@ -8,7 +8,10 @@ class Trader:
         self.trader_data = []
 
     def fair(self, order_depth: OrderDepth, method = "mid_price", vol_filter = 0):
-        best_ask, best_bid, mid_price
+        best_ask = 0
+        best_bid = 0
+        mid_price = 0
+
         if method == "mid_price":
             best_ask = min(order_depth.sell_orders.keys())
             best_bid = max(order_depth.buy_orders.keys())
@@ -102,7 +105,7 @@ class Trader:
 
         # params for kelp
         kelp_position_limit = 50
-        kelp_fair_value = fair(state.order_depths["KELP"])
+        kelp_fair_value = 2025
         kelp_width = 1
         
         if "RAINFOREST_RESIN" in state.order_depths:
