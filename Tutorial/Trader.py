@@ -13,6 +13,10 @@ class Trader:
     WINDOW_SIZE = 10  # For moving average
     price_history = []
 
+    def __init__(self):
+        self.price_history = []
+        self.volume_history = []
+
     def run(self, state: TradingState):
         print("traderData: " + state.traderData)
         print("Observations: " + str(state.observations))

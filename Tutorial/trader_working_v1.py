@@ -12,6 +12,7 @@ class Trader:
         if method == "mid_price":
             best_ask = min(order_depth.sell_orders.keys())
             best_bid = max(order_depth.buy_orders.keys())
+            
         elif method == "mid_price_with_vol_filter":
             if len(price for price in order_depth.sell_orders.keys() if abs(order_depth.sell_orders[price]) >= vol_filter) == 0 or \
                 len(price for price in order_depth.buy_orders.keys() if abs(order_depth.buy_orders[price]) >= vol_filter) == 0:
@@ -56,8 +57,8 @@ class Trader:
         buy_order_volume = 0
         sell_order_volume = 0
 
-        ba = min([price for price in order_depth.sell_orders.keys() if price > fair_value + width])
-        bb = max([price for price in order_depth.buy_orders.keys() if price < fair_value - width])
+        ''' ba = fair_value + width
+        bb = fair_value - width ''' 
 
         if len(order_depth.sell_orders) != 0:
             best_ask = min(order_depth.sell_orders.keys())
@@ -77,15 +78,17 @@ class Trader:
                     orders.append(Order(product, best_bid, -1 * quantity))
                     sell_order_volume += quantity
         
-        buy_order_volume, sell_order_volume = self.clear_position_order(orders, order_depth, position, position_limit, product, buy_order_volume, sell_order_volume, fair_value, 1)
+        buy_order_volume, sell_order_volume = self.clear_position_order(orders, order_depth, position, position_limit, product, buy_order_volume, sell_order_volume, fair_value)
 
+        ''' 
         buy_quantity = position_limit - (position + buy_order_volume)
         if buy_quantity > 0:
             orders.append(Order(product, ba + width, buy_quantity))  # Buy order
 
         sell_quantity = position_limit + (position - sell_order_volume)
         if sell_quantity > 0:
-            orders.append(Order("AMETHYSTS", bb - width, -sell_quantity))  # Sell order
+            orders.append(Order("AMETHYSTS", bb - width, -sell_quantity))  # Sell order 
+        '''
 
         return orders
 
@@ -94,12 +97,12 @@ class Trader:
 
         # params for rainforest resin
         rr_position_limit = 50
-        rr_fair_value = 1000
+        rr_fair_value = 10000
         rr_width = 1
 
         # params for kelp
         kelp_position_limit = 50
-        kelp_fair_value = 1000
+        kelp_fair_value = fair(state.order_depths["KELP"])
         kelp_width = 1
         
         if "RAINFOREST_RESIN" in state.order_depths:
