@@ -4,29 +4,52 @@ import math
 import jsonpickle as jp
 
 class Trader:
+    WINDOW_SIZE = 10  # For moving average
+
     def __init__(self):
         self.trader_data = []
 
     def fair(self, order_depth: OrderDepth, method = "mid_price", vol_filter = 0):
-        best_ask = 0
-        best_bid = 0
-        mid_price = 0
-
-        if method == "mid_price":
-            best_ask = min(order_depth.sell_orders.keys())
+        theo = None
+        if order_depth.sell_orders and order_depth.buy_orders:
             best_bid = max(order_depth.buy_orders.keys())
+            best_ask = min(order_depth.sell_orders.keys())
+            mid_price = (best_bid + best_ask) / 2
             
-        elif method == "mid_price_with_vol_filter":
-            if len(price for price in order_depth.sell_orders.keys() if abs(order_depth.sell_orders[price]) >= vol_filter) == 0 or \
-                len(price for price in order_depth.buy_orders.keys() if abs(order_depth.buy_orders[price]) >= vol_filter) == 0:
-                best_ask = min(order_depth.sell_orders.keys())
-                best_bid = max(order_depth.buy_orders.keys())
+            # Calculate total volume at best bid/ask
+            best_bid_vol = order_depth.buy_orders[best_bid]
+            best_ask_vol = order_depth.sell_orders[best_ask]
+            total_vol = best_bid_vol + best_ask_vol
+            
+            # Update price and volume history
+            self.price_history.append(mid_price)
+            self.volume_history.append(total_vol)
+            
+            # Simple moving average
+            if len(self.price_history) >= self.WINDOW_SIZE:
+                theo = np.mean(self.price_history[-self.WINDOW_SIZE:])
             else:
-                best_ask = min([price for price in order_depth.sell_orders.keys() if abs(order_depth.sell_orders[price]) >= vol_filter])
-                best_bid = max([price for price in order_depth.buy_orders.keys() if abs(order_depth.buy_orders[price]) >= vol_filter])
+                theo = mid_price
+        return theo
+        # best_ask = 0
+        # best_bid = 0
+        # mid_price = 0
+
+        # if method == "mid_price":
+        #     best_ask = min(order_depth.sell_orders.keys())
+        #     best_bid = max(order_depth.buy_orders.keys())
+            
+        # elif method == "mid_price_with_vol_filter":
+        #     if len(price for price in order_depth.sell_orders.keys() if abs(order_depth.sell_orders[price]) >= vol_filter) == 0 or \
+        #         len(price for price in order_depth.buy_orders.keys() if abs(order_depth.buy_orders[price]) >= vol_filter) == 0:
+        #         best_ask = min(order_depth.sell_orders.keys())
+        #         best_bid = max(order_depth.buy_orders.keys())
+        #     else:
+        #         best_ask = min([price for price in order_depth.sell_orders.keys() if abs(order_depth.sell_orders[price]) >= vol_filter])
+        #         best_bid = max([price for price in order_depth.buy_orders.keys() if abs(order_depth.buy_orders[price]) >= vol_filter])
         
-        mid_price = (best_ask + best_bid) / 2
-        return mid_price 
+        # mid_price = (best_ask + best_bid) / 2
+        # return mid_price 
     
     def clear_position_order(self, orders: List[Order], order_depth: OrderDepth, position: int, position_limit: int, 
                              product: str, buy_order_volume: int, sell_order_volume: int, fair_value: float) -> List[Order]:
