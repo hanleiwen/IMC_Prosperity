@@ -3,6 +3,7 @@ from typing import List
 import math
 import numpy as np
 import jsonpickle as jp
+from logger import Logger
 
 class Trader:
     WINDOW_SIZE = 6  # For moving average
@@ -11,7 +12,7 @@ class Trader:
         self.price_history = []
         self.volume_history = []
 
-    def fair(self, product: str, order_depth: OrderDepth, method = "mid_price", vol_filter = 0):
+    def fair(self, order_depth: OrderDepth, method = "mid_price", vol_filter = 0):
         
         fair_price = None
 
@@ -124,12 +125,12 @@ class Trader:
 
         # params for rainforest resin
         rr_position_limit = 50
-        rr_fair_value = self.fair("RAINFOREST_RESIN", state.order_depths["RAINFOREST_RESIN"])
+        rr_fair_value = 10000
         rr_width = 1
 
         # params for kelp
         kelp_position_limit = 50
-        kelp_fair_value = self.fair("KELP", state.order_depths["KELP"], method = "moving_average")
+        kelp_fair_value = self.fair(state.order_depths["KELP"], method = "moving_average")
         kelp_width = 1
         
         if "RAINFOREST_RESIN" in state.order_depths:
