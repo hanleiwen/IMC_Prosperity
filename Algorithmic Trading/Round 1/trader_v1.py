@@ -2,7 +2,6 @@ from datamodel import OrderDepth, UserId, TradingState, Order
 from typing import List
 import string
 import jsonpickle
-import numpy as np
 import math
 
 
@@ -61,25 +60,6 @@ class Trader:
                 best_bid = max([price for price in order_depth.buy_orders.keys() if abs(order_depth.buy_orders[price]) >= vol_filter])
 
             fair_price = (best_ask + best_bid) / 2
-
-        elif method == "moving_average":
-            best_bid = max(order_depth.buy_orders.keys())
-            best_ask = min(order_depth.sell_orders.keys())
-            mid_price = (best_bid + best_ask) / 2
-            
-            # Calculate total volume at best bid/ask
-            best_bid_vol = order_depth.buy_orders[best_bid]
-            best_ask_vol = order_depth.sell_orders[best_ask]
-            total_vol = best_bid_vol + best_ask_vol
-            
-            # Update price and volume history
-            self.price_history.append(mid_price)
-            
-            # Simple moving average
-            if len(self.price_history) >= self.WINDOW_SIZE:
-                fair_price = np.mean(self.price_history[-self.WINDOW_SIZE:])
-            else:
-                fair_price = mid_price
         return fair_price
 
     def take_best_orders(
@@ -92,8 +72,7 @@ class Trader:
         position: int,
         buy_order_volume: int,
         sell_order_volume: int,
-        prevent_adverse: bool = False,
-        adverse_volume: int = 0,
+
     ) -> (int, int):
         position_limit = self.LIMIT[product]
 
@@ -217,8 +196,6 @@ class Trader:
             position,
             buy_order_volume,
             sell_order_volume,
-            prevent_adverse,
-            adverse_volume,
         )
         return orders, buy_order_volume, sell_order_volume
 
@@ -355,7 +332,7 @@ class Trader:
                 else 0
             )
 
-            self.params[Product.KELP]["fair_value"] = self.fair(state.order_depths["KELP"])
+            self.params[Product.KELP]["fair_value"] = self.fair(state.order_depths["KELP"], "mid_price_with_vol_filter")
 
             kelp_take_orders, buy_order_volume, sell_order_volume = (
                 self.take_orders(
@@ -397,7 +374,7 @@ class Trader:
                 else 0
             )
 
-            self.params[Product.SQUID_INK]["fair_value"] = self.fair(state.order_depths["SQUID_INK"])
+            self.params[Product.SQUID_INK]["fair_value"] = self.fair(state.order_depths["SQUID_INK"], "mid_price_with_vol_filter")
 
             squid_ink_take_orders, buy_order_volume, sell_order_volume = (
                 self.take_orders(
