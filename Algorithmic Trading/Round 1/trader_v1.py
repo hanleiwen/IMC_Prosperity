@@ -73,7 +73,7 @@ class Trader:
         buy_order_volume: int,
         sell_order_volume: int,
 
-    ) -> (int, int):
+    ) -> tuple[int, int]:
         position_limit = self.LIMIT[product]
 
         if len(order_depth.sell_orders) != 0:
@@ -119,7 +119,7 @@ class Trader:
         position: int,
         buy_order_volume: int,
         sell_order_volume: int,
-    ) -> (int, int):
+    ) -> tuple[int, int]:
         buy_quantity = self.LIMIT[product] - (position + buy_order_volume)
         if buy_quantity > 0:
             orders.append(Order(product, round(bid), buy_quantity))  # Buy order
@@ -182,7 +182,7 @@ class Trader:
         fair_value: float,
         take_width: float,
         position: int,
-    ) -> (List[Order], int, int):
+    ) -> tuple[List[Order], int, int]:
         orders: List[Order] = []
         buy_order_volume = 0
         sell_order_volume = 0
