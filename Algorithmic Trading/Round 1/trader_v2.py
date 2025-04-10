@@ -1,6 +1,7 @@
 from datamodel import OrderDepth, UserId, TradingState, Order
 from typing import List
 import string
+import numpy as np
 import jsonpickle
 import math
 
@@ -48,6 +49,10 @@ PARAMS = {
 
 
 class Trader:
+    WINDOW_SIZE = 10  # For moving average
+    price_history = []
+    volume_history = []
+
     def __init__(self, params=None):
         if params is None:
             params = PARAMS
@@ -75,6 +80,27 @@ class Trader:
                 best_bid = max([price for price in order_depth.buy_orders.keys() if abs(order_depth.buy_orders[price]) >= vol_filter])
 
             fair_price = (best_ask + best_bid) / 2
+
+        else:
+            best_bid = max(order_depth.buy_orders.keys())
+            best_ask = min(order_depth.sell_orders.keys())
+            mid_price = (best_bid + best_ask) / 2
+            
+            # Calculate total volume at best bid/ask
+            best_bid_vol = order_depth.buy_orders[best_bid]
+            best_ask_vol = order_depth.sell_orders[best_ask]
+            total_vol = best_bid_vol + best_ask_vol
+            
+            # Update price and volume history
+            self.price_history.append(mid_price)
+            self.volume_history.append(total_vol)
+            
+            # Simple moving average
+            if len(self.price_history) >= self.WINDOW_SIZE:
+                fair_price = np.mean(self.price_history[-self.WINDOW_SIZE:])
+            else:
+                fair_price = mid_price
+
         return fair_price
 
     def take_best_orders(
@@ -89,7 +115,7 @@ class Trader:
         sell_order_volume: int,
         prevent_adverse: bool = False,
         adverse_volume: int = 0,
-    ) -> (int, int):
+    ) -> tuple[int, int]:
         position_limit = self.LIMIT[product]
 
         if len(order_depth.sell_orders) != 0:
@@ -135,7 +161,7 @@ class Trader:
         position: int,
         buy_order_volume: int,
         sell_order_volume: int,
-    ) -> (int, int):
+    ) -> tuple[int, int]:
         buy_quantity = self.LIMIT[product] - (position + buy_order_volume)
         if buy_quantity > 0:
             orders.append(Order(product, round(bid), buy_quantity))  # Buy order
@@ -200,7 +226,7 @@ class Trader:
         position: int,
         prevent_adverse: bool = False,
         adverse_volume: int = 0,
-    ) -> (List[Order], int, int):
+    ) -> tuple[List[Order], int, int]:
         orders: List[Order] = []
         buy_order_volume = 0
         sell_order_volume = 0
@@ -228,7 +254,7 @@ class Trader:
         position: int,
         buy_order_volume: int,
         sell_order_volume: int,
-    ) -> (List[Order], int, int):
+    ) -> tuple[List[Order], int, int]:
         orders: List[Order] = []
         buy_order_volume, sell_order_volume = self.clear_position_order(
             product,
