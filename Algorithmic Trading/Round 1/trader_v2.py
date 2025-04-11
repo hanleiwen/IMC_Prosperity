@@ -299,14 +299,14 @@ class Trader:
         best_bid_below_fair = max(bids_below_fair) if len(bids_below_fair) > 0 else None
 
         ask = round(fair_value + default_edge)
-        if best_ask_above_fair != None:
+        if best_ask_above_fair is not None:
             if abs(best_ask_above_fair - fair_value) <= join_edge:
                 ask = best_ask_above_fair  # join
             else:
                 ask = best_ask_above_fair - 1  # penny
 
         bid = round(fair_value - default_edge)
-        if best_bid_below_fair != None:
+        if best_bid_below_fair is not None:
             if abs(fair_value - best_bid_below_fair) <= join_edge:
                 bid = best_bid_below_fair
             else:
@@ -332,7 +332,7 @@ class Trader:
 
     def run(self, state: TradingState):
         traderObject = {}
-        if state.traderData != None and state.traderData != "":
+        if state.traderData is not None and state.traderData != "":
             traderObject = jsonpickle.decode(state.traderData)
 
         result = {}
