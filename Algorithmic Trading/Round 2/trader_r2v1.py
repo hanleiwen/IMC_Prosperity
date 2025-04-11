@@ -1,8 +1,8 @@
-from datamodel import OrderDepth, UserId, TradingState, Order
+from datamodel import OrderDepth, TradingState, Order  #UserId
 from typing import List
-import string
+# import string
 import jsonpickle
-import math
+# import math
 
 
 class Product:
@@ -94,7 +94,7 @@ class Trader:
         sell_order_volume: int,
         prevent_adverse: bool = False,
         adverse_volume: int = 0,
-    ) -> (int, int):
+    ) -> tuple[int, int]:
         position_limit = self.LIMIT[product]
 
         if len(order_depth.sell_orders) != 0:
@@ -140,7 +140,7 @@ class Trader:
         position: int,
         buy_order_volume: int,
         sell_order_volume: int,
-    ) -> (int, int):
+    ) -> tuple[int, int]:
         buy_quantity = self.LIMIT[product] - (position + buy_order_volume)
         if buy_quantity > 0:
             orders.append(Order(product, round(bid), buy_quantity))  # Buy order
@@ -205,7 +205,7 @@ class Trader:
         position: int,
         prevent_adverse: bool = False,
         adverse_volume: int = 0,
-    ) -> (List[Order], int, int):
+    ) -> tuple[List[Order], int, int]:
         orders: List[Order] = []
         buy_order_volume = 0
         sell_order_volume = 0
@@ -233,7 +233,7 @@ class Trader:
         position: int,
         buy_order_volume: int,
         sell_order_volume: int,
-    ) -> (List[Order], int, int):
+    ) -> tuple[List[Order], int, int]:
         orders: List[Order] = []
         buy_order_volume, sell_order_volume = self.clear_position_order(
             product,
@@ -278,14 +278,14 @@ class Trader:
         best_bid_below_fair = max(bids_below_fair) if len(bids_below_fair) > 0 else None
 
         ask = round(fair_value + default_edge)
-        if best_ask_above_fair != None:
+        if best_ask_above_fair is not None:
             if abs(best_ask_above_fair - fair_value) <= join_edge:
                 ask = best_ask_above_fair  # join
             else:
                 ask = best_ask_above_fair - 1  # penny
 
         bid = round(fair_value - default_edge)
-        if best_bid_below_fair != None:
+        if best_bid_below_fair is not None:
             if abs(fair_value - best_bid_below_fair) <= join_edge:
                 bid = best_bid_below_fair
             else:
@@ -311,7 +311,7 @@ class Trader:
 
     def run(self, state: TradingState):
         traderObject = {}
-        if state.traderData != None and state.traderData != "":
+        if state.traderData is not None and state.traderData != "":
             traderObject = jsonpickle.decode(state.traderData)
 
         result = {}
