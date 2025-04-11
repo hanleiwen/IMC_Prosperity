@@ -1,9 +1,9 @@
-from datamodel import OrderDepth, UserId, TradingState, Order
+from datamodel import OrderDepth, TradingState, Order  #UserId
 from typing import List
-import string
+# import string
 import numpy as np
 import jsonpickle
-import math
+# import math
 
 
 class Product:
