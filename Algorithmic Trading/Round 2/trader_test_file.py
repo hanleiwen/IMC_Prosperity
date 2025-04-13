@@ -17,16 +17,15 @@ class Product:
     PICNIC_BASKET2 = "PICNIC_BAASKET2"
 
 PARAMS = {
-    Product.SQUID_INK: {
-        "fair_value": 0,
-        "take_width": 1,
-        "clear_width": 3,
-        "prevent_adverse": True,
-        "adverse_volume": 10,
-        "reversion_beta": -0.229,
-        "disregard_edge": 2,
-        "join_edge": 0,
-        "default_edge": 1,
+    Product.RAINFOREST_RESIN: {
+        "fair_value": 10000,
+        "take_width": 3,
+        "clear_width": 0,
+        # for making
+        "disregard_edge": 2,  # disregards orders for joining or pennying within this value from fair
+        "join_edge": 2,  # joins orders within this edge
+        "default_edge": 5,
+        "soft_position_limit": 15,
     },
 }
 
@@ -39,7 +38,7 @@ class Trader:
 
         self.LIMIT = {Product.RAINFOREST_RESIN: 50, Product.KELP: 50, Product.SQUID_INK: 50}
 
-    def fair(self, order_depth: OrderDepth, vol_filter = 0):
+    def kelp_fair(self, order_depth: OrderDepth, vol_filter = 0):
         if len([price for price in order_depth.sell_orders.keys() if abs(order_depth.sell_orders[price]) >= vol_filter]) == 0 or \
             len([price for price in order_depth.buy_orders.keys() if abs(order_depth.buy_orders[price]) >= vol_filter]) == 0:
             best_ask = min(order_depth.sell_orders.keys())
@@ -285,50 +284,47 @@ class Trader:
 
         result = {}
 
-        if Product.SQUID_INK in self.params and Product.SQUID_INK in state.order_depths:
-            squid_ink_position = (
-                state.position[Product.SQUID_INK]
-                if Product.SQUID_INK in state.position
+        if Product.RAINFOREST_RESIN in self.params and Product.RAINFOREST_RESIN in state.order_depths:
+            rainforest_resin_position = (
+                state.position[Product.RAINFOREST_RESIN]
+                if Product.RAINFOREST_RESIN in state.position
                 else 0
             )
-
-            self.params[Product.SQUID_INK]["fair_value"] = self.fair(state.order_depths["SQUID_INK"], 23)
-
-            squid_ink_take_orders, buy_order_volume, sell_order_volume = (
+            rainforest_resin_take_orders, buy_order_volume, sell_order_volume = (
                 self.take_orders(
-                    Product.SQUID_INK,
-                    state.order_depths[Product.SQUID_INK],
-                    self.params[Product.SQUID_INK]["fair_value"],
-                    self.params[Product.SQUID_INK]["take_width"],
-                    squid_ink_position,
-                    self.params[Product.SQUID_INK]["prevent_adverse"],
-                    self.params[Product.SQUID_INK]["adverse_volume"],
+                    Product.RAINFOREST_RESIN,
+                    state.order_depths[Product.RAINFOREST_RESIN],
+                    self.params[Product.RAINFOREST_RESIN]["fair_value"],
+                    self.params[Product.RAINFOREST_RESIN]["take_width"],
+                    rainforest_resin_position,
                 )
             )
-            squid_ink_clear_orders, buy_order_volume, sell_order_volume = (
+            rainforest_resin_clear_orders, buy_order_volume, sell_order_volume = (
                 self.clear_orders(
-                    Product.SQUID_INK,
-                    state.order_depths[Product.SQUID_INK],
-                    self.params[Product.SQUID_INK]["fair_value"],
-                    self.params[Product.SQUID_INK]["clear_width"],
-                    squid_ink_position,
+                    Product.RAINFOREST_RESIN,
+                    state.order_depths[Product.RAINFOREST_RESIN],
+                    self.params[Product.RAINFOREST_RESIN]["fair_value"],
+                    self.params[Product.RAINFOREST_RESIN]["clear_width"],
+                    rainforest_resin_position,
                     buy_order_volume,
                     sell_order_volume,
                 )
             )
-            squid_ink_make_orders, _, _ = self.make_orders(
-                Product.SQUID_INK,
-                state.order_depths[Product.SQUID_INK],
-                self.params[Product.SQUID_INK]["fair_value"],
-                squid_ink_position,
+            rainforest_resin_make_orders, _, _ = self.make_orders(
+                Product.RAINFOREST_RESIN,
+                state.order_depths[Product.RAINFOREST_RESIN],
+                self.params[Product.RAINFOREST_RESIN]["fair_value"],
+                rainforest_resin_position,
                 buy_order_volume,
                 sell_order_volume,
-                self.params[Product.SQUID_INK]["disregard_edge"],
-                self.params[Product.SQUID_INK]["join_edge"],
-                self.params[Product.SQUID_INK]["default_edge"],
+                self.params[Product.RAINFOREST_RESIN]["disregard_edge"],
+                self.params[Product.RAINFOREST_RESIN]["join_edge"],
+                self.params[Product.RAINFOREST_RESIN]["default_edge"],
+                True,
+                self.params[Product.RAINFOREST_RESIN]["soft_position_limit"],
             )
-            result[Product.SQUID_INK] = (
-                squid_ink_take_orders + squid_ink_clear_orders + squid_ink_make_orders
+            result[Product.RAINFOREST_RESIN] = (
+                rainforest_resin_take_orders + rainforest_resin_clear_orders + rainforest_resin_make_orders
             )
         
         conversions = 1
