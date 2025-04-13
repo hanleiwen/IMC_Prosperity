@@ -366,7 +366,7 @@ class Trader:
                 else 0
             )
 
-            self.params[Product.KELP]["fair_value"] = self.fair(state.order_depths["KELP"], "mid_price_with_vol_filter", 20)
+            # self.params[Product.KELP]["fair_value"] = self.fair(state.order_depths["KELP"], "mid_price_with_vol_filter", 20)
 
             kelp_take_orders, buy_order_volume, sell_order_volume = (
                 self.take_orders(
@@ -412,7 +412,7 @@ class Trader:
                 else 0
             )
 
-            self.params[Product.SQUID_INK]["fair_value"] = self.fair(state.order_depths["SQUID_INK"], "mid_price_with_vol_filter", 20)
+            #self.params[Product.SQUID_INK]["fair_value"] = self.fair(state.order_depths["SQUID_INK"], "mid_price_with_vol_filter", 20)
 
             squid_ink_take_orders, buy_order_volume, sell_order_volume = (
                 self.take_orders(
