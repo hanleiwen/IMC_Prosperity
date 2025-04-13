@@ -1,29 +1,30 @@
-from datamodel import OrderDepth, TradingState, Order  #UserId
-from typing import List, Optional
+from datamodel import Listing, Observation, Order, OrderDepth, ProsperityEncoder, Symbol, Trade, TradingState, UserId
+from typing import List, Optional, Any
 # import string
 import jsonpickle
+import json
 # import math
 
 class Product:
-    def init(self, symb, f_v, j_e, def_e, p_l,
+    def __init__(self, symb, f_v, j_e, def_e, p_l,
             spr = 1, c_w = 0, p_a = True, a_v = 15, 
             r_b = -0.229, d_e = 1, s_p_l = None):
-        symbol: str = symb
-        fair_value: float = f_v
-        spread: float = spr
-        clear_width: float = c_w
-        prevent_adverse: bool = p_a
-        adverse_voume: float = a_v
-        reversion_beta: float = r_b
-        disregard_edge: float = d_e
-        join_edge: float = j_e
-        default_edge: float = def_e
-        position_limit: int = p_l
-        soft_position_limit: Optional[int] = s_p_l
+        self.symbol: str = symb
+        self.fair_value: float = f_v
+        self.spread: float = spr
+        self.clear_width: float = c_w
+        self.prevent_adverse: bool = p_a
+        self.adverse_volume: float = a_v
+        self.reversion_beta: float = r_b
+        self.disregard_edge: float = d_e
+        self.join_edge: float = j_e
+        self.default_edge: float = def_e
+        self.position_limit: int = p_l
+        self.soft_position_limit: Optional[int] = s_p_l
 
 class Rainforest_Resin(Product):
     def __init__(self):
-        super().__init__("RAINFOREST_RESIN", 10000, 2, 4, 50, 10, s_p_l = None)
+        super().__init__("RAINFOREST_RESIN", 10000, 2, 4, 50, 10, s_p_l = 10)
 
 class Kelp(Product):
     def __init__(self):
@@ -134,7 +135,7 @@ class Trader:
                     quantity = min(best_ask_amount, 
                                    product.position_limit - position) 
                     if quantity > 0:
-                        orders.append(Order(product, best_ask, quantity))
+                        orders.append(Order(product.symbol, best_ask, quantity))
                         buy_order_volume += quantity
                         order_depth.sell_orders[best_ask] += quantity
                         if order_depth.sell_orders[best_ask] == 0:
@@ -149,7 +150,7 @@ class Trader:
                     quantity = min(best_bid_amount, 
                                    product.position_limit + position)
                     if quantity > 0:
-                        orders.append(Order(product, best_bid, -1 * quantity))
+                        orders.append(Order(product.symbol, best_bid, -1 * quantity))
                         sell_order_volume += quantity
                         order_depth.buy_orders[best_bid] -= quantity
                         if order_depth.buy_orders[best_bid] == 0:
@@ -169,11 +170,11 @@ class Trader:
     ) -> tuple[int, int]:
         buy_quantity = product.position_limit - (position + buy_order_volume)
         if buy_quantity > 0:
-            orders.append(Order(product, round(bid), buy_quantity))
+            orders.append(Order(product.symbol, round(bid), buy_quantity))
 
         sell_quantity = product.position_limit + (position - sell_order_volume)
         if sell_quantity > 0:
-            orders.append(Order(product, round(ask), -sell_quantity))
+            orders.append(Order(product.symbol, round(ask), -sell_quantity))
 
         return buy_order_volume, sell_order_volume
 
@@ -205,7 +206,7 @@ class Trader:
             clear_quantity = min(clear_quantity, position_after_take)
             sent_quantity = min(sell_quantity, clear_quantity)
             if sent_quantity > 0:
-                orders.append(Order(product, fair_for_ask, -abs(sent_quantity)))
+                orders.append(Order(product.symbol, fair_for_ask, -abs(sent_quantity)))
                 sell_order_volume += abs(sent_quantity)
 
         if position_after_take < 0 and order_depth.sell_orders:
@@ -218,7 +219,7 @@ class Trader:
             clear_quantity = min(clear_quantity, abs(position_after_take))
             sent_quantity = min(buy_quantity, clear_quantity)
             if sent_quantity > 0:
-                orders.append(Order(product, fair_for_bid, abs(sent_quantity)))
+                orders.append(Order(product.symbol, fair_for_bid, abs(sent_quantity)))
                 buy_order_volume += abs(sent_quantity)
 
         return buy_order_volume, sell_order_volume
@@ -347,7 +348,7 @@ class Trader:
         for prod_symbol, order_depth in state.order_depths.items():
             if prod_symbol in self.products:
                 product = self.products[prod_symbol]
-                position = state.position[prod_symbol]
+                position = state.position.get("KELP", 0)
 
                 if prod_symbol in ["KELP", "SQUID_INK"]:
                     product.fair_value = self.fair(order_depth, "mid_price_with_vol_filter", 20)
@@ -382,7 +383,124 @@ class Trader:
 
                 result[prod_symbol] = take_orders + clear_orders + make_orders
 
-        conversions = 1
+        conversions = 0
         traderData = jsonpickle.encode(traderObject)
+        logger.flush(state, result, conversions, traderData)
 
         return result, conversions, traderData
+
+class Logger:
+    def __init__(self) -> None:
+        self.logs = ""
+        self.max_log_length = 3750
+
+    def print(self, *objects: Any, sep: str = " ", end: str = "\n") -> None:
+        self.logs += sep.join(map(str, objects)) + end
+
+    def flush(self, state: TradingState, orders: dict[Symbol, list[Order]], conversions: int, trader_data: str) -> None:
+        base_length = len(
+            self.to_json(
+                [
+                    self.compress_state(state, ""),
+                    self.compress_orders(orders),
+                    conversions,
+                    "",
+                    "",
+                ]
+            )
+        )
+
+        # We truncate state.traderData, trader_data, and self.logs to the same max. length to fit the log limit
+        max_item_length = (self.max_log_length - base_length) // 3
+
+        print(
+            self.to_json(
+                [
+                    self.compress_state(state, self.truncate(state.traderData, max_item_length)),
+                    self.compress_orders(orders),
+                    conversions,
+                    self.truncate(trader_data, max_item_length),
+                    self.truncate(self.logs, max_item_length),
+                ]
+            )
+        )
+
+        self.logs = ""
+
+    def compress_state(self, state: TradingState, trader_data: str) -> list[Any]:
+        return [
+            state.timestamp,
+            trader_data,
+            self.compress_listings(state.listings),
+            self.compress_order_depths(state.order_depths),
+            self.compress_trades(state.own_trades),
+            self.compress_trades(state.market_trades),
+            state.position,
+            self.compress_observations(state.observations),
+        ]
+
+    def compress_listings(self, listings: dict[Symbol, Listing]) -> list[list[Any]]:
+        compressed = []
+        for listing in listings.values():
+            compressed.append([listing.symbol, listing.product, listing.denomination])
+
+        return compressed
+
+    def compress_order_depths(self, order_depths: dict[Symbol, OrderDepth]) -> dict[Symbol, list[Any]]:
+        compressed = {}
+        for symbol, order_depth in order_depths.items():
+            compressed[symbol] = [order_depth.buy_orders, order_depth.sell_orders]
+
+        return compressed
+
+    def compress_trades(self, trades: dict[Symbol, list[Trade]]) -> list[list[Any]]:
+        compressed = []
+        for arr in trades.values():
+            for trade in arr:
+                compressed.append(
+                    [
+                        trade.symbol,
+                        trade.price,
+                        trade.quantity,
+                        trade.buyer,
+                        trade.seller,
+                        trade.timestamp,
+                    ]
+                )
+
+        return compressed
+
+    def compress_observations(self, observations: Observation) -> list[Any]:
+        conversion_observations = {}
+        for product, observation in observations.conversionObservations.items():
+            conversion_observations[product] = [
+                observation.bidPrice,
+                observation.askPrice,
+                observation.transportFees,
+                observation.exportTariff,
+                observation.importTariff,
+                observation.sugarPrice,
+                observation.sunlightIndex,
+            ]
+
+        return [observations.plainValueObservations, conversion_observations]
+
+    def compress_orders(self, orders: dict[Symbol, list[Order]]) -> list[list[Any]]:
+        compressed = []
+        for arr in orders.values():
+            for order in arr:
+                compressed.append([order.symbol, order.price, order.quantity])
+
+        return compressed
+
+    def to_json(self, value: Any) -> str:
+        return json.dumps(value, cls=ProsperityEncoder, separators=(",", ":"))
+
+    def truncate(self, value: str, max_length: int) -> str:
+        if len(value) <= max_length:
+            return value
+
+        return value[: max_length - 3] + "..."
+
+
+logger = Logger()
