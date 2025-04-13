@@ -18,35 +18,35 @@ class Product:
 PARAMS = {
     Product.RAINFOREST_RESIN: {
         "fair_value": 10000,
-        "take_width": 3,
+        "take_width": 1,
         "clear_width": 0,
         # for making
-        "disregard_edge": 2,  # disregards orders for joining or pennying within this value from fair
+        "disregard_edge": 1,  # disregards orders for joining or pennying within this value from fair
         "join_edge": 2,  # joins orders within this edge
-        "default_edge": 5,
-        "soft_position_limit": 15,
+        "default_edge": 4,
+        "soft_position_limit": 20,
     },
     Product.KELP: {
         "fair_value": 0,
-        "take_width": 2,
+        "take_width": 1,
         "clear_width": 0,
         "prevent_adverse": True,
-        "adverse_volume": 0,
-        "reversion_beta": -0.239,
-        "disregard_edge": 3,
+        "adverse_volume": 25,
+        "reversion_beta": -0.229,
+        "disregard_edge": 0,
         "join_edge": 1,
         "default_edge": 1,
     },
     Product.SQUID_INK: {
         "fair_value": 0,
         "take_width": 1,
-        "clear_width": 3,
+        "clear_width": 0,
         "prevent_adverse": True,
         "adverse_volume": 10,
-        "reversion_beta": -0.229,
-        "disregard_edge": 2,
-        "join_edge": 0,
-        "default_edge": 1,
+        "reversion_beta": -0.250,
+        "disregard_edge": 1,
+        "join_edge": 2,
+        "default_edge": 2,
     },
 }
 
@@ -365,7 +365,7 @@ class Trader:
                 else 0
             )
 
-            self.params[Product.KELP]["fair_value"] = self.kelp_fair(state.order_depths["KELP"], 17)
+            self.params[Product.KELP]["fair_value"] = self.kelp_fair(state.order_depths["KELP"], 20)
 
             kelp_take_orders, buy_order_volume, sell_order_volume = (
                 self.take_orders(
@@ -403,6 +403,7 @@ class Trader:
             result[Product.KELP] = (
                 kelp_take_orders + kelp_clear_orders + kelp_make_orders
             )
+
         if Product.SQUID_INK in self.params and Product.SQUID_INK in state.order_depths:
             squid_ink_position = (
                 state.position[Product.SQUID_INK]
@@ -410,7 +411,7 @@ class Trader:
                 else 0
             )
 
-            self.params[Product.SQUID_INK]["fair_value"] = self.squid_ink_fair(state.order_depths["SQUID_INK"], 23)
+            self.params[Product.SQUID_INK]["fair_value"] = self.squid_ink_fair(state.order_depths["SQUID_INK"], 10)
 
             squid_ink_take_orders, buy_order_volume, sell_order_volume = (
                 self.take_orders(
