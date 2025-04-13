@@ -5,7 +5,6 @@ import jsonpickle
 import json
 # import math
 
-
 class Logger:
     def __init__(self) -> None:
         self.logs = ""
@@ -137,6 +136,7 @@ class Product:
         self.default_edge: float = def_e
         self.position_limit: int = p_l
         self.soft_position_limit: Optional[int] = s_p_l
+        self.price_history: list[float] = []
 
 class Rainforest_Resin(Product):
     def __init__(self):
@@ -152,15 +152,15 @@ class Squid_Ink(Product):
 
 class Croissant(Product):
     def __init__(self):
-        super().__init__("CROISSANT", 0, 0, 1, 250)
+        super().__init__("CROISSANTS", 0, 0, 1, 250)
 
 class Jam(Product):
     def __init__(self):
-        super().__init__("JAM", 0, 0, 1, 350)
+        super().__init__("JAMS", 0, 0, 1, 350)
 
 class Djembe(Product):
     def __init__(self):
-        super().__init__("DJEMBE", 0, 0, 1, 60)
+        super().__init__("DJEMBES", 0, 0, 1, 60)
 
 class Basket(Product):
     def __init__(self, symb, f_v, j_e, def_e, p_l):
@@ -191,16 +191,16 @@ class Trader:
                 "RAINFOREST_RESIN": Rainforest_Resin(),
                 "KELP": Kelp(),
                 "SQUID_INK": Squid_Ink(),
-                "CROISSANT": Croissant(),
-                "JAM": Jam(),
-                "DJEMBE": Djembe(),
+                "CROISSANTS": Croissant(),
+                "JAMS": Jam(),
+                "DJEMBES": Djembe(),
                 "PICNIC_BASKET1": Picnic_Basket1(),
                 "PICNIC_BASKET2": Picnic_Basket2()
             }
         else:
             self.products = products
 
-    def fair(self, order_depth: OrderDepth, method: str = "mid_price", vol_filter: int = 0):
+    def fair(self, product_symbol: str, order_depth: OrderDepth, method: str = "mid_price", vol_filter: int = 0, window_size: int = 10):
         
         fair_price = None
 
@@ -226,6 +226,17 @@ class Trader:
 
             if best_ask is not None and best_bid is not None:
                 fair_price = (best_ask + best_bid) / 2
+        
+        elif method == "moving_average":
+            best_bid = max(order_depth.buy_orders.keys())
+            best_ask = min(order_depth.sell_orders.keys())
+            mid_price = (best_bid + best_ask) / 2
+
+            self.products[product_symbol].price_history.append(mid_price)
+            if len(self.products[product_symbol].price_history) > window_size:
+                self.products[product_symbol].price_history.pop(0)
+
+            fair_price = sum(self.products[product_symbol].price_history) / len(self.products[product_symbol].price_history)
 
         return fair_price
 
@@ -400,9 +411,6 @@ class Trader:
         buy_order_volume: int,
         sell_order_volume: int,
         manage_position: bool = False,
-        # disregard_edge: float, 
-        # join_edge: float,  # join trades within this edge
-        # default_edge: float,  # default edge to request if there are no levels to penny or join
         soft_position_limit: int = 0, # will penny all other levels with higher edge
     ):
         orders: List[Order] = []
@@ -466,8 +474,15 @@ class Trader:
                 product = self.products[prod_symbol]
                 position = state.position.get("KELP", 0)
 
-                if prod_symbol in ["KELP", "SQUID_INK"]:
-                    product.fair_value = self.fair(order_depth, "mid_price_with_vol_filter", 20)
+                if prod_symbol in ["SQUID_INK", "CROISSANTS", "JAMS"]:
+                    v_f = 30
+                    if prod_symbol == "CROISSANTS":
+                        v_f = 60
+                    else:
+                        v_f = 80
+                    product.fair_value = self.fair(prod_symbol, order_depth, "mid_price_with_vol_filter", v_f)
+                else:
+                    product.fair_value = self.fair(prod_symbol, order_depth, "moving_average")
 
                 take_orders, buy_vol, sell_vol = self.take_orders(
                     product,
