@@ -200,45 +200,82 @@ class Trader:
         else:
             self.products = products
 
-    def fair(self, product_symbol: str, order_depth: OrderDepth, method: str = "mid_price", vol_filter: int = 0, window_size: int = 10):
-        
-        fair_price = None
+    def get_liquidity_score(self, order_depth: OrderDepth) -> float:
+        """Score 0-1 where >0.7 is high liquidity"""
+        bid_vol = sum(order_depth.buy_orders.values())
+        ask_vol = sum(abs(v) for v in order_depth.sell_orders.values())
+        total_vol = bid_vol + ask_vol
+        return min(total_vol / 500, 1.0)
 
-        if method == "mid_price":
+    def mid_price_fair(self, order_depth: OrderDepth):
+        best_ask = min(order_depth.sell_orders.keys()) if order_depth.sell_orders else None
+        best_bid = max(order_depth.buy_orders.keys()) if order_depth.buy_orders else None
+
+        if best_ask is not None and best_bid is not None:
+            return (best_ask + best_bid) / 2
+        
+        return None
+    
+    def vol_filter_fair(self, order_depth: OrderDepth, vol_filter: int):
+        filtered_asks = [price for price in order_depth.sell_orders.keys() 
+                           if abs(order_depth.sell_orders[price]) > vol_filter] if order_depth.sell_orders else []
+        filtered_bids = [price for price in order_depth.buy_orders.keys() 
+                        if abs(order_depth.buy_orders[price]) > vol_filter] if order_depth.buy_orders else []
+
+        if filtered_asks and filtered_bids:
+            best_ask = min(filtered_asks)
+            best_bid = max(filtered_bids)
+        else:
             best_ask = min(order_depth.sell_orders.keys()) if order_depth.sell_orders else None
             best_bid = max(order_depth.buy_orders.keys()) if order_depth.buy_orders else None
 
-            if best_ask is not None and best_bid is not None:
-                fair_price = (best_ask + best_bid) / 2
+        if best_ask is not None and best_bid is not None:
+            return (best_ask + best_bid) / 2
         
-        elif method == "mid_price_with_vol_filter":
-            filtered_asks = [price for price in order_depth.sell_orders.keys() 
-                           if abs(order_depth.sell_orders[price]) > vol_filter] if order_depth.sell_orders else []
-            filtered_bids = [price for price in order_depth.buy_orders.keys() 
-                           if abs(order_depth.buy_orders[price]) > vol_filter] if order_depth.buy_orders else []
+        return None
+    
+    def moving_average_fair(self, prod_symbol: str, order_depth: OrderDepth, window_size: int):
+        best_bid = max(order_depth.buy_orders.keys())
+        best_ask = min(order_depth.sell_orders.keys())
+        mid_price = (best_bid + best_ask) / 2
 
-            if filtered_asks and filtered_bids:
-                best_ask = min(filtered_asks)
-                best_bid = max(filtered_bids)
-            else:
-                best_ask = min(order_depth.sell_orders.keys()) if order_depth.sell_orders else None
-                best_bid = max(order_depth.buy_orders.keys()) if order_depth.buy_orders else None
+        self.products[prod_symbol].price_history.append(mid_price)
+        if len(self.products[prod_symbol].price_history) > window_size:
+            self.products[prod_symbol].price_history.pop(0)
 
-            if best_ask is not None and best_bid is not None:
-                fair_price = (best_ask + best_bid) / 2
-        
-        elif method == "moving_average":
-            best_bid = max(order_depth.buy_orders.keys())
-            best_ask = min(order_depth.sell_orders.keys())
-            mid_price = (best_bid + best_ask) / 2
+        return sum(self.products[prod_symbol].price_history) / len(self.products[prod_symbol].price_history)
 
-            self.products[product_symbol].price_history.append(mid_price)
-            if len(self.products[product_symbol].price_history) > window_size:
-                self.products[product_symbol].price_history.pop(0)
+    def fair(self, product_symbol: str, state: TradingState, order_depth: OrderDepth):    
+        if product_symbol in ["PICNIC_BASKET1", "PICNIC_BASKET2"]:
+            fair_price = 0
+            for p, q in self.products[product_symbol].components.items():
+                if p in state.order_depths:
+                    fair_price += self.fair(p, state, state.order_depths[p]) * q
+    
+            return fair_price 
 
-            fair_price = sum(self.products[product_symbol].price_history) / len(self.products[product_symbol].price_history)
+        liquidity = self.get_liquidity_score(order_depth)
 
-        return fair_price
+        window_bounds = {
+            'high': (3, 7),
+            'medium': (6, 12),
+            'low': (10, 20)
+        }
+        w_z = int(window_bounds["low"][0] + (window_bounds["low"][1] - window_bounds["low"][0]) * (1 - liquidity))
+        v_f = self.products[product_symbol].position_limit * 0.1
+
+        if liquidity > 0.7:
+            w_z = int(window_bounds["high"][0] + (window_bounds["high"][1] - window_bounds["high"][0]) * (1 - liquidity))
+            v_f += self.products[product_symbol].position_limit * 0.2
+        elif liquidity > 0.3:
+            w_z = int(window_bounds["medium"][0] + (window_bounds["medium"][1] - window_bounds["medium"][0]) * (1 - liquidity))
+            v_f += self.products[product_symbol].position_limit * 0.1
+
+        mp_fair = self.mid_price_fair(order_depth)
+        vf_fair = self.vol_filter_fair(order_depth, v_f)
+        ma_fair = self.moving_average_fair(product_symbol, order_depth, w_z)
+
+        return 0.2 * mp_fair + 0.4 * vf_fair + 0.4 * ma_fair
 
     def take_best_orders(
         self,
@@ -474,15 +511,7 @@ class Trader:
                 product = self.products[prod_symbol]
                 position = state.position.get("KELP", 0)
 
-                if prod_symbol in ["SQUID_INK", "CROISSANTS", "JAMS"]:
-                    v_f = 30
-                    if prod_symbol == "CROISSANTS":
-                        v_f = 60
-                    else:
-                        v_f = 80
-                    product.fair_value = self.fair(prod_symbol, order_depth, "mid_price_with_vol_filter", v_f)
-                else:
-                    product.fair_value = self.fair(prod_symbol, order_depth, "moving_average")
+                product.fair_value = self.fair(prod_symbol, state, order_depth)
 
                 take_orders, buy_vol, sell_vol = self.take_orders(
                     product,
