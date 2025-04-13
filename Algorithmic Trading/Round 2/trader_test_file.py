@@ -32,12 +32,12 @@ PARAMS = {
     },
 
     Product.SPREAD2: {
-        "default_spread_mean": 379.50439988484239,
-        "default_spread_std": 76.07966,
-        "spread_std_window": 45,
-        "zscore_threshold": 7,
-        "target_position": 58,
-    },
+        "default_spread_mean": 227.70263993090543,
+        "default_spread_std": 45.647796,
+        "spread_std_window": 27.0,
+        "zscore_threshold": 4.2,
+        "target_position": 34.8
+    }
 }
 
 PICNIC_BASKET1_WEIGHTS = {
