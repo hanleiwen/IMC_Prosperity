@@ -1,4 +1,4 @@
-from datamodel import Listing, Observation, Order, OrderDepth, ProsperityEncoder, Symbol, Trade, TradingState, UserId
+from datamodel import Listing, Observation, Order, OrderDepth, ProsperityEncoder, Symbol, Trade, TradingState  # UserId
 from typing import List, Optional, Any
 # import string
 import jsonpickle
