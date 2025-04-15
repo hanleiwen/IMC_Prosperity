@@ -46,7 +46,14 @@ def simulate_using_prior(exponent=1, base=10000, delta=0.005, delta2=0.0003, del
     print("Calculated payoffs:", payoffs)
     print("Optimal container (if everyone uses p) is Container", best_choice, "with parameters", spots[best_choice])
     print()
-
+    # Add: Show top 3 best containers before congestion
+    sorted_indices = np.argsort(payoffs)[::-1]
+    top3 = sorted_indices[:3]
+    print("Top 3 containers before congestion:")
+    for rank, idx in enumerate(top3, 1):
+        m, h = spots[idx]
+        print(f"  Rank {rank}: Container {idx} with Multiplier={m}, Hunters={h}, Payoff={payoffs[idx]:.2f}")
+    print()
     # Simulate congestion: assume everyone chooses the container with the highest payoff,
     # then increase its selection fraction by an extra amount. 
     # Also, add extra amounts for the second-best and third-best containers.
@@ -66,14 +73,20 @@ def simulate_using_prior(exponent=1, base=10000, delta=0.005, delta2=0.0003, del
         denom = h + 100 * p_modified[j]
         new_payoffs[j] = base * m / denom if denom != 0 else float('inf')
     new_best_choice = np.argmax(new_payoffs)
-
+    new_sorted_indices = np.argsort(new_payoffs)[::-1]
+    new_top3 = new_sorted_indices[:3]
+    print("Top 3 containers after congestion adjustment:")
+    for rank, idx in enumerate(new_top3, 1):
+        m, h = spots[idx]
+        print(f"  Rank {rank}: Container {idx} with Multiplier={m}, Hunters={h}, Payoff={new_payoffs[idx]:.2f}")
+    print()
     print("After incorporating congestion factors delta =", delta, ", delta2 =", delta2, ", delta3 =", delta3)
     print("Modified distribution (p_modified):", p_modified)
     print("New calculated payoffs:", new_payoffs)
     print("New optimal container is Container", new_best_choice, "with parameters", spots[new_best_choice])
     print()
 
-    return p_prior, payoffs, best_choice, p_modified, new_payoffs, new_best_choice
+    return p_prior, payoffs, best_choice, p_modified, new_payoffs, new_best_choice, top3
 
 '''
 def sequential_simulation(num_players=10000, base=10000, delta=0.05):
@@ -143,4 +156,27 @@ def sequential_simulation(num_players=10000, base=10000, delta=0.05):
     return chosen_counts, final_distribution, final_distribution_mod, new_payoffs, new_best_choice
 '''
 # Run simulations
-simulate_using_prior(exponent=1, base=10000, delta=0.005, delta2=0.0003, delta3=0.0002)
+def simulate_game_theory_choice(top3, payoffs, num_players=10000, temperature=1.0):
+    """
+    Each player selects one of the top 3 containers using a softmax function based on payoff.
+    'temperature' controls randomness: lower = greedier.
+    """
+    payoff_values = np.array([payoffs[i] for i in top3])
+    exp_vals = np.exp(payoff_values / temperature)
+    probs = exp_vals / exp_vals.sum()
+
+    choices = np.random.choice(top3, size=num_players, p=probs)
+    counts = {i: (choices == i).sum() for i in top3}
+
+    print("=== Game-Theoretic Choice Simulation ===")
+    print(f"Temperature = {temperature}")
+    print(f"Softmax Probabilities: {[f'{probs[i]:.3f}' for i in range(3)]}")
+    for i in top3:
+        print(f"Container {i}: chosen by {counts[i]} players, payoff = {payoffs[i]:.2f}")
+    print()
+
+    return counts
+p_prior, payoffs, best_choice, p_mod, new_payoffs, new_best_choice, top3 = simulate_using_prior()
+
+simulate_using_prior(exponent=2, base=10000, delta=0.05, delta2=0.03, delta3=0.02)
+
