@@ -4,8 +4,7 @@ from typing import List, Optional, Any
 import jsonpickle
 import json
 import numpy as np
-from scipy.stats import norm
-from math import log, sqrt
+from math import log, sqrt, erf, exp, pi
 
 class Logger:
     def __init__(self) -> None:
@@ -201,10 +200,43 @@ class Voucher(Product):
         self._last_iv = 0.3
         self.implied_vol_history = []
         self.moneyness_history = []
-        self.base_iv_history = []  # Stores at-the-money IVs
-        self.ticks_per_day = 1_000_000
+        self.base_iv_history = []
+        
+        # Time parameters (1M ticks/day, 7 days to 2 days expiry)
+        self.ticks_per_day = 1000000
         self.total_days = 7
         self.min_days = 2
+
+    def black_scholes_iv(self, S: float, V: float, T: float) -> float:
+        """Proper erf() implementation of IV calculation"""
+        intrinsic = max(S - self.strike_price, 0)
+        if T <= 1e-6 or V <= intrinsic + 1e-4:
+            return 0.0
+        
+        ln_SK = log(S/self.strike_price)
+        sqrt_T = sqrt(T)
+        vol = getattr(self, '_last_iv', 0.2)
+        
+        for _ in range(10):  # Reduced iterations
+            d1 = (ln_SK + (vol**2/2)*T) / (vol*sqrt_T)
+            d2 = d1 - vol*sqrt_T
+            
+            # Correct erf() to CDF conversion:
+            bs_price = S * (0.5 + 0.5*erf(d1/sqrt(2))) - \
+                    self.strike_price * (0.5 + 0.5*erf(d2/sqrt(2)))
+            
+            # Proper vega calculation
+            vega = S * sqrt_T * exp(-d1**2/2) / sqrt(2*pi)
+            
+            price_diff = bs_price - V
+            if abs(price_diff) < 1e-4 or vega < 1e-10:
+                break
+                
+            vol -= price_diff / max(vega, 1e-4)
+            vol = max(0.05, min(2.0, vol))
+        
+        self._last_iv = vol
+        return vol
 
     def update_iv_curve(self, underlying_price: float, timestamp: int) -> float:
         """Updates both raw IVs and base IV (ATM volatility)"""
@@ -289,18 +321,18 @@ class Trader:
             self.products: dict[str, Product] = {
                 "RAINFOREST_RESIN": Rainforest_Resin(),
                 "KELP": Kelp(),
-                # "SQUID_INK": Squid_Ink(),
+                "SQUID_INK": Squid_Ink(),
                 "CROISSANTS": Croissant(),
                 "JAMS": Jam(),
-                # "DJEMBES": Djembe(),
+                "DJEMBES": Djembe(),
                 "PICNIC_BASKET1": Picnic_Basket1(),
                 "PICNIC_BASKET2": Picnic_Basket2(),
-                # "VOLCANIC_ROCK": Volcanic_Rock(),
-                # "VOLCANIC_ROCK_VOUCHER_9500": Volcanic_Rock_Voucher_9500(),
-                # "VOLCANIC_ROCK_VOUCHER_9750": Volcanic_Rock_Voucher_9750(),
-                # "VOLCANIC_ROCK_VOUCHER_10000": Volcanic_Rock_Voucher_10000(),
-                # "VOLCANIC_ROCK_VOUCHER_10250": Volcanic_Rock_Voucher_10250(),
-                # "VOLCANIC_ROCK_VOUCHER_10500": Volcanic_Rock_Voucher_10500()
+                "VOLCANIC_ROCK": Volcanic_Rock(),
+                "VOLCANIC_ROCK_VOUCHER_9500": Volcanic_Rock_Voucher_9500(),
+                "VOLCANIC_ROCK_VOUCHER_9750": Volcanic_Rock_Voucher_9750(),
+                "VOLCANIC_ROCK_VOUCHER_10000": Volcanic_Rock_Voucher_10000(),
+                "VOLCANIC_ROCK_VOUCHER_10250": Volcanic_Rock_Voucher_10250(),
+                "VOLCANIC_ROCK_VOUCHER_10500": Volcanic_Rock_Voucher_10500()
             }
         else:
             self.products = products
