@@ -144,23 +144,27 @@ class Rainforest_Resin(Product):
 
 class Kelp(Product):
     def __init__(self):
-        super().__init__("KELP", 0, 0, 1, 50)
+        super().__init__("KELP", 2020, 0, 1, 50)
 
 class Squid_Ink(Product):
     def __init__(self):
-        super().__init__("SQUID_INK", 0, 0, 1, 50)
+        super().__init__("SQUID_INK", 2000, 2, 4, 50, spr=3, 
+                         c_w=3, p_a=True, a_v=10)
 
 class Croissant(Product):
     def __init__(self):
-        super().__init__("CROISSANTS", 0, 0, 1, 250)
+        super().__init__("CROISSANTS", 4320, 2, 4, 250, spr=2, 
+                         c_w=2, p_a=True, a_v=20)
 
 class Jam(Product):
     def __init__(self):
-        super().__init__("JAMS", 0, 0, 1, 350)
+        super().__init__("JAMS", 6600, 2, 4, 350, spr=2, 
+                         c_w=2, p_a=True, a_v=20)
 
 class Djembe(Product):
     def __init__(self):
-        super().__init__("DJEMBES", 0, 0, 1, 60)
+        super().__init__("DJEMBES", 13400, 2, 4, 60, spr=3, 
+                         c_w=3, p_a=True, a_v=10, s_p_l=15)
 
 class Basket(Product):
     def __init__(self, symb, f_v, j_e, def_e, p_l):
@@ -200,12 +204,12 @@ class Trader:
         else:
             self.products = products
 
-    def get_liquidity_score(self, order_depth: OrderDepth) -> float:
+    def get_liquidity_score(self, prod_symbol: str, order_depth: OrderDepth) -> float:
         """Score 0-1 where >0.7 is high liquidity"""
         bid_vol = sum(order_depth.buy_orders.values())
         ask_vol = sum(abs(v) for v in order_depth.sell_orders.values())
         total_vol = bid_vol + ask_vol
-        return min(total_vol / 500, 1.0)
+        return min(total_vol / max(300, self.products[prod_symbol].position_limit * 4), 1.0)
 
     def mid_price_fair(self, order_depth: OrderDepth):
         best_ask = min(order_depth.sell_orders.keys()) if order_depth.sell_orders else None
@@ -254,7 +258,7 @@ class Trader:
     
             return fair_price 
 
-        liquidity = self.get_liquidity_score(order_depth)
+        liquidity = self.get_liquidity_score(product_symbol, order_depth)
 
         window_bounds = {
             'high': (3, 7),
@@ -271,11 +275,11 @@ class Trader:
             w_z = int(window_bounds["medium"][0] + (window_bounds["medium"][1] - window_bounds["medium"][0]) * (1 - liquidity))
             v_f += self.products[product_symbol].position_limit * 0.1
 
-        mp_fair = self.mid_price_fair(order_depth)
+        # mp_fair = self.mid_price_fair(order_depth)
         vf_fair = self.vol_filter_fair(order_depth, v_f)
         ma_fair = self.moving_average_fair(product_symbol, order_depth, w_z)
 
-        return 0.2 * mp_fair + 0.4 * vf_fair + 0.4 * ma_fair
+        return 0.5 * vf_fair + 0.5 * ma_fair
 
     def take_best_orders(
         self,
@@ -509,7 +513,7 @@ class Trader:
         for prod_symbol, order_depth in state.order_depths.items():
             if prod_symbol in self.products:
                 product = self.products[prod_symbol]
-                position = state.position.get("KELP", 0)
+                position = state.position.get(prod_symbol, 0)
 
                 product.fair_value = self.fair(prod_symbol, state, order_depth)
 
