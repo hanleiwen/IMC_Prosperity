@@ -243,7 +243,7 @@ class Voucher(Product):
             return None
         
         current_price = self.price_history[-1]
-        T = max(0.01, (8000000 - timestamp) / 1_000_000)  # Given TTE formula
+        T = max(0.01, (8000000 - timestamp) / 1000000)  # Given TTE formula
         
         # Compute IV (using cached values if possible)
         iv = self.black_scholes_iv(underlying_price, current_price, T)
@@ -655,14 +655,13 @@ class Trader:
 
         if "VOLCANIC_ROCK" in state.order_depths:
             rock_price = self.mid_price_fair(state.order_depths["VOLCANIC_ROCK"])
-            days_left = max(1, 7 - (state.timestamp // (24 * 3600)))  # Ensure ≥1 day
             
             # Process each voucher
             for sym, voucher in [(s,p) for s,p in self.products.items() if "VOUCHER" in s]:
                 if sym in state.order_depths:
                     # Update fair value and IV analysis
                     voucher.fair_value = rock_price
-                    voucher.update_iv_curve(rock_price, days_left)  # base_iv
+                    voucher.update_iv_curve(rock_price, state.timestamp)  # base_iv
                     
                     # Get trading signal
                     signal = voucher.get_iv_signal()
