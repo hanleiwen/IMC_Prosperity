@@ -203,6 +203,7 @@ class Voucher(Product):
         self.implied_vol_history = []
         self.moneyness_history = []
         self.base_iv_history = []
+        
     def black_scholes_iv(self, S: float, V: float, T: float) -> float:
         """High-speed IV calculation for 1M+ ticks."""
         # Edge cases
