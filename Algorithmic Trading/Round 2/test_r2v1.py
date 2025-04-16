@@ -173,7 +173,7 @@ class Basket(Product):
 
 class Picnic_Basket1(Basket):
     def __init__(self):
-        super().__init__("PICNIC_BASKET1", 0, 0, 1, 60)
+        super().__init__("PICNIC_BASKET1", 58000, 0, 1, 60)
         self.components = {
             "CROISSANT": 6,
             "JAM": 3,
@@ -182,7 +182,7 @@ class Picnic_Basket1(Basket):
         
 class Picnic_Basket2(Basket):
     def __init__(self):
-        super().__init__("PICNIC_BASKET2", 0, 0, 1, 100)
+        super().__init__("PICNIC_BASKET2", 30000, 0, 1, 100)
         self.components = {
             "CROISSANT": 4,
             "JAM": 2,
