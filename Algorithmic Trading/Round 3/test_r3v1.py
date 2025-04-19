@@ -3,7 +3,8 @@ from typing import List, Optional, Any
 # import string
 import jsonpickle
 import json
-# import math
+import numpy as np
+from math import log, sqrt, erf, exp, pi
 
 class Logger:
     def __init__(self) -> None:
@@ -188,6 +189,132 @@ class Picnic_Basket2(Basket):
             "JAM": 2,
         }
 
+class Volcanic_Rock(Product):
+    def __init__(self):
+        super().__init__("VOLCANIC_ROCK", 10200, 2, 4, 300, spr=3, c_w=3, p_a=True, a_v=30, s_p_l=50)
+        
+class Voucher(Product):
+    def __init__(self, symb: str, s_p: int, p_l: int = 200):
+        super().__init__(symb, s_p, 1, 2, p_l, spr=3, c_w=3, p_a=True, a_v=15)
+        self.strike_price = s_p
+        self._last_iv = 0.3
+        self.implied_vol_history = []
+        self.moneyness_history = []
+        self.base_iv_history = []
+        
+        # Time parameters (1M ticks/day, 7 days to 2 days expiry)
+        self.ticks_per_day = 1000000
+        self.total_days = 7
+        self.min_days = 2
+
+    def black_scholes_iv(self, S: float, V: float, T: float) -> float:
+        """Proper erf() implementation of IV calculation"""
+        intrinsic = max(S - self.strike_price, 0)
+        if T <= 1e-6 or V <= intrinsic + 1e-4:
+            return 0.0
+        
+        ln_SK = log(S/self.strike_price)
+        sqrt_T = sqrt(T)
+        vol = getattr(self, '_last_iv', 0.2)
+        
+        for _ in range(10):  # Reduced iterations
+            d1 = (ln_SK + (vol**2/2)*T) / (vol*sqrt_T)
+            d2 = d1 - vol*sqrt_T
+            
+            # Correct erf() to CDF conversion:
+            bs_price = S * (0.5 + 0.5*erf(d1/sqrt(2))) - \
+                    self.strike_price * (0.5 + 0.5*erf(d2/sqrt(2)))
+            
+            # Proper vega calculation
+            vega = S * sqrt_T * exp(-d1**2/2) / sqrt(2*pi)
+            
+            price_diff = bs_price - V
+            if abs(price_diff) < 1e-4 or vega < 1e-10:
+                break
+                
+            vol -= price_diff / max(vega, 1e-4)
+            vol = max(0.05, min(2.0, vol))
+        
+        self._last_iv = vol
+        return vol
+
+    def update_iv_curve(self, underlying_price: float, timestamp: int) -> float:
+        """Updates both raw IVs and base IV (ATM volatility)"""
+        days_passed = timestamp / self.ticks_per_day
+        days_left = max(self.min_days, self.total_days - days_passed)
+        T = days_left / 252  # Annualized
+        
+        if not self.price_history:
+            return None
+            
+        current_price = self.price_history[-1]
+        iv = self.black_scholes_iv(underlying_price, current_price, T)
+        
+        # Store raw IV for all strikes
+        self.implied_vol_history.append(iv)
+        
+        # Calculate and store moneyness
+        m_t = log(self.strike_price/underlying_price)/sqrt(T)
+        self.moneyness_history.append(m_t)
+        
+        # Fit volatility smile and extract base IV (ATM)
+        if len(self.moneyness_history) % 1000 == 0 and len(self.moneyness_history) > 10:
+            try:
+                coeffs = np.polyfit(self.moneyness_history[-10:], 
+                                  self.implied_vol_history[-10:], 2)
+                self.iv_smile = np.poly1d(coeffs)
+                base_iv = float(self.iv_smile(0))  # IV at moneyness=0 (ATM)
+                self.base_iv_history.append(base_iv)
+            except:
+                pass
+        
+        return iv
+
+    def get_iv_signal(self) -> int:
+        """Uses base_iv_history for more stable signals"""
+        if len(self.base_iv_history) < 5:
+            return 0  # Neutral if insufficient data
+            
+        current_iv = self.base_iv_history[-1]
+        iv_mean = np.mean(self.base_iv_history[-5:])
+        iv_std = np.std(self.base_iv_history[-5:])
+        
+        # Dynamic signal thresholds
+        if iv_std < 1e-4:  # Flat market
+            return 0
+            
+        z_score = (current_iv - iv_mean) / iv_std
+        
+        if z_score > 1.5:
+            return -1  # Strong sell (overpriced)
+        elif z_score > 0.5:
+            return -2  # Mild sell
+        elif z_score < -1.5:
+            return 1   # Strong buy (underpriced)
+        elif z_score < -0.5:
+            return 2   # Mild buy
+        return 0
+
+class Volcanic_Rock_Voucher_9500(Voucher):
+    def __init__(self):
+        super().__init__("VOLCANIC_ROCK_VOUCHER_9500", 9500)
+
+class Volcanic_Rock_Voucher_9750(Voucher):
+    def __init__(self):
+        super().__init__("VOLCANIC_ROCK_VOUCHER_9750", 9750)
+
+class Volcanic_Rock_Voucher_10000(Voucher):
+    def __init__(self):
+        super().__init__("VOLCANIC_ROCK_VOUCHER_10000", 10000)
+
+class Volcanic_Rock_Voucher_10250(Voucher):
+    def __init__(self):
+        super().__init__("VOLCANIC_ROCK_VOUCHER_10250", 10250)
+
+class Volcanic_Rock_Voucher_10500(Voucher):
+    def __init__(self):
+        super().__init__("VOLCANIC_ROCK_VOUCHER_10500", 10500)
+
 class Trader:
     def __init__(self, products = None):
         if products is None:
@@ -199,7 +326,13 @@ class Trader:
                 "JAMS": Jam(),
                 "DJEMBES": Djembe(),
                 "PICNIC_BASKET1": Picnic_Basket1(),
-                "PICNIC_BASKET2": Picnic_Basket2()
+                "PICNIC_BASKET2": Picnic_Basket2(),
+                "VOLCANIC_ROCK": Volcanic_Rock(),
+                "VOLCANIC_ROCK_VOUCHER_9500": Volcanic_Rock_Voucher_9500(),
+                "VOLCANIC_ROCK_VOUCHER_9750": Volcanic_Rock_Voucher_9750(),
+                "VOLCANIC_ROCK_VOUCHER_10000": Volcanic_Rock_Voucher_10000(),
+                "VOLCANIC_ROCK_VOUCHER_10250": Volcanic_Rock_Voucher_10250(),
+                "VOLCANIC_ROCK_VOUCHER_10500": Volcanic_Rock_Voucher_10500()
             }
         else:
             self.products = products
@@ -275,11 +408,11 @@ class Trader:
             w_z = int(window_bounds["medium"][0] + (window_bounds["medium"][1] - window_bounds["medium"][0]) * (1 - liquidity))
             v_f += self.products[product_symbol].position_limit * 0.1
 
-        # mp_fair = self.mid_price_fair(order_depth)
+        mp_fair = self.mid_price_fair(order_depth)
         vf_fair = self.vol_filter_fair(order_depth, v_f)
         ma_fair = self.moving_average_fair(product_symbol, order_depth, w_z)
 
-        return 0.5 * vf_fair + 0.5 * ma_fair
+        return 0.1 * mp_fair + 0.45 * vf_fair + 0.45 * ma_fair
 
     def take_best_orders(
         self,
@@ -503,6 +636,39 @@ class Trader:
 
         return orders, buy_order_volume, sell_order_volume
 
+    def generate_voucher_orders(self, voucher: Voucher, order_depth: OrderDepth,
+                         position: int, signal: int) -> List[Order]:
+        orders = []
+        fair_value = voucher.fair_value
+        best_bid = max(order_depth.buy_orders.keys()) if order_depth.buy_orders else 0
+        best_ask = min(order_depth.sell_orders.keys()) if order_depth.sell_orders else 0
+        
+        # Dynamic position sizing based on signal strength
+        position_ratio = abs(position) / voucher.position_limit
+        
+        if signal == -1:  # Strong sell
+            premium = max(5, int(fair_value * 0.0015))  # 0.15% or min 5
+            sell_price = max(best_ask, fair_value + premium)
+            qty = min(20, int(voucher.position_limit * (1 - position_ratio)))
+            orders.append(Order(voucher.symbol, sell_price, -qty))
+            
+        elif signal == 1:  # Strong buy
+            discount = max(5, int(fair_value * 0.0015))
+            buy_price = min(best_bid, fair_value - discount)
+            qty = min(20, int(voucher.position_limit * (1 - position_ratio)))
+            orders.append(Order(voucher.symbol, buy_price, qty))
+        
+        # Add iceberg orders for better execution
+        if abs(signal) == 1 and len(orders) > 0:
+            primary_order = orders[0]
+            secondary_price = primary_order.price + (-1 if signal == -1 else 1)
+            secondary_qty = min(10, primary_order.quantity // 2)
+            if secondary_qty > 0:
+                orders.append(Order(voucher.symbol, secondary_price, 
+                                -secondary_qty if signal == -1 else secondary_qty))
+        
+        return orders
+
     def run(self, state: TradingState):
         traderObject = {}
         if state.traderData is not None and state.traderData != "":
@@ -510,8 +676,39 @@ class Trader:
 
         result = {}
 
+        if "VOLCANIC_ROCK" in state.order_depths:
+            rock_price = self.mid_price_fair(state.order_depths["VOLCANIC_ROCK"])
+            days_left = max(1, 7 - (state.timestamp // (24 * 3600)))  # Ensure ≥1 day
+            
+            # Process each voucher
+            for sym, voucher in [(s,p) for s,p in self.products.items() if "VOUCHER" in s]:
+                if sym in state.order_depths:
+                    # Update fair value and IV analysis
+                    voucher.fair_value = rock_price
+                    voucher.update_iv_curve(rock_price, days_left)   # base_iv
+                    
+                    # Get trading signal
+                    signal = voucher.get_iv_signal()
+                    position = state.position.get(sym, 0)
+                    
+                    # Generate orders based on signal
+                    if signal == -1:  # Overpriced
+                        orders = self.generate_voucher_orders(voucher, state.order_depths[sym],  position, "sell")
+                    elif signal == 1:  # Underpriced
+                        orders = self.generate_voucher_orders(voucher, state.order_depths[sym], position, "buy")
+                    else:  # Neutral - market make
+                        take_orders, buy_vol, sell_vol = self.take_orders(
+                            voucher, state.order_depths[sym], voucher.fair_value, voucher.spread//2, position
+                        )
+                        make_orders, _, _ = self.make_orders(
+                            voucher, state.order_depths[sym], voucher.fair_value, position, buy_vol, sell_vol
+                        )
+                        orders = take_orders + make_orders
+                    
+                    result[sym] = orders
+        
         for prod_symbol, order_depth in state.order_depths.items():
-            if prod_symbol in self.products:
+            if prod_symbol in self.products and "VOUCHER" not in prod_symbol:
                 product = self.products[prod_symbol]
                 position = state.position.get(prod_symbol, 0)
 
