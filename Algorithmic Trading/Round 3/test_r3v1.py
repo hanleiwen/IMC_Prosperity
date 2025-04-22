@@ -326,13 +326,13 @@ class Trader:
                 "JAMS": Jam(),
                 "DJEMBES": Djembe(),
                 "PICNIC_BASKET1": Picnic_Basket1(),
-                "PICNIC_BASKET2": Picnic_Basket2(),
-                "VOLCANIC_ROCK": Volcanic_Rock(),
-                "VOLCANIC_ROCK_VOUCHER_9500": Volcanic_Rock_Voucher_9500(),
-                "VOLCANIC_ROCK_VOUCHER_9750": Volcanic_Rock_Voucher_9750(),
-                "VOLCANIC_ROCK_VOUCHER_10000": Volcanic_Rock_Voucher_10000(),
-                "VOLCANIC_ROCK_VOUCHER_10250": Volcanic_Rock_Voucher_10250(),
-                "VOLCANIC_ROCK_VOUCHER_10500": Volcanic_Rock_Voucher_10500()
+                "PICNIC_BASKET2": Picnic_Basket2()
+                # "VOLCANIC_ROCK": Volcanic_Rock(),
+                # "VOLCANIC_ROCK_VOUCHER_9500": Volcanic_Rock_Voucher_9500(),
+                # "VOLCANIC_ROCK_VOUCHER_9750": Volcanic_Rock_Voucher_9750(),
+                # "VOLCANIC_ROCK_VOUCHER_10000": Volcanic_Rock_Voucher_10000(),
+                # "VOLCANIC_ROCK_VOUCHER_10250": Volcanic_Rock_Voucher_10250(),
+                # "VOLCANIC_ROCK_VOUCHER_10500": Volcanic_Rock_Voucher_10500()
             }
         else:
             self.products = products
